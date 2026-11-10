@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>AID eval harness</title></head>
+<body>
+<script src="/lib/ort.wasm.min.js"></script>
+<script src="/src/shared/metadata.js"></script>
+<script src="/src/shared/provenance.js"></script>
+<script src="/src/offscreen/verify-c2pa.js"></script>
+<script>
+// 浏览器内推理页。预处理刻意与 src/offscreen/offscreen.js 的 runInference 保持一致
+// （同一套 createImageBitmap → OffscreenCanvas → drawImage → 归一化），
+// 因为缩放核与归一化会显著影响 AI 检测特征，自己写 resize 会引入无法归因的偏差。
+//
+// 支持可插拔模型：尺寸 / mean / std / 哪个 logit 是 AI，全部由 Node 侧传入，
+// 参数来自各模型仓库自己的 config.json 与 preprocessor_config.json。
+window.__state = { ready: false, error: null };
+
+let CFG = null;
+let session = null;
+let inputName = null;
+let outputName = null;
+
+window.__setup = async function (cfg) {
+  window.__state = { ready: false, error: null };
+  CFG = cfg;
+  try {
+    if (session) { await session.release(); session = null; }
+    ort.env.wasm.numThreads = 1;          // 与 offscreen.js 一致
+    ort.env.wasm.wasmPaths = '/lib/';
+    const resp = await fetch(cfg.modelUrl);
+    if (!resp.ok) throw new Error('model fetch failed: ' + resp.status);
+    const buf = await resp.arrayBuffer();
+    session = await ort.InferenceSession.create(new Uint8Array(buf), {
+      executionProviders: ['wasm'],
+      // fp16 模型在 ORT-web 1.27 的 'all' 图优化下会加载失败
+      // （SimplifiedLayerNormFusion 找不到 InsertedPrecisionFreeCast 的输入名），
+      // 所以允许按模型指定级别，由 run-eval.mjs 逐级重试。
+      graphOptimizationLevel: cfg.graphOptimizationLevel || 'all',
+    });
+    inputName = cfg.inputName || session.inputNames[0];
+    outputName = cfg.outputName || session.outputNames[0];
+    window.__state = {
+      ready: true, error: null, inputName, outputName,
+      inputs: session.inputNames, outputs: session.outputNames,
+    };
+  } catch (e) {
+    window.__state = { ready: false, error: String((e && e.message) || e) };
+  }
+};
+
+window.__infer = async function (url) {
+  if (!session) throw new Error('session not ready');
+  const t0 = performance.now();
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('image fetch failed: ' + resp.status);
+  const blob = await resp.blob();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const meta = await AIDMetadata.summarizeBytesAsync(bytes);
+  meta.provenance = AIDMetadata.hasJumb(bytes) ? await AIDC2PA.verify(bytes, AIDMetadata.sniffContainer(bytes).mime) : { status: 'not-present', aiDisclosure: false };
+  const bmp = await createImageBitmap(blob);
+
+  const W = CFG.inputWidth;
+  const H = CFG.inputHeight;
+  const canvas = new OffscreenCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bmp, 0, 0, W, H);
+  bmp.close();
+  const imageData = ctx.getImageData(0, 0, W, H);
+
+  const data = imageData.data;
+  const plane = W * H;
+  const floatData = new Float32Array(3 * plane);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const si = (y * W + x) * 4;
+      const o = y * W + x;
+      floatData[o] = (data[si] / 255 - CFG.mean[0]) / CFG.std[0];
+      floatData[plane + o] = (data[si + 1] / 255 - CFG.mean[1]) / CFG.std[1];
+      floatData[2 * plane + o] = (data[si + 2] / 255 - CFG.mean[2]) / CFG.std[2];
+    }
+  }
+
+  const tensor = new ort.Tensor('float32', floatData, [1, 3, W, H]);
+  const out = await session.run({ [inputName]: tensor });
+  const logits = out[outputName].data;
+
+  // 二分类 softmax；哪个下标是 AI 由模型 config 的 id2label 推导，不写死
+  const maxL = Math.max(logits[0], logits[1]);
+  const e0 = Math.exp(logits[0] - maxL);
+  const e1 = Math.exp(logits[1] - maxL);
+  const sum = e0 + e1;
+  const aiProbability = (CFG.aiClassIndex === 0 ? e0 : e1) / sum;
+
+  return {
+    aiProbability, meta,
+    ms: performance.now() - t0,
+    logits: [logits[0], logits[1]],
+  };
+};
+</script>
+</body>
+</html>

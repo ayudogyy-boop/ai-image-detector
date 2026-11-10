@@ -1,0 +1,25 @@
+{
+  "name": "ai-image-detector",
+  "version": "2.2.1",
+  "private": true,
+  "description": "Chrome MV3 扩展：本地 C2PA 验签 + 来源声明 + ONNX 模型估计，证据分层，不上传图片",
+  "comment": "扩展本体零运行时依赖，全部代码与模型都在仓库里。下面这些只服务于构建与评测，因此都是 devDependencies。",
+  "scripts": {
+    "test": "node eval/test-metadata.mjs && node --test eval/test-regressions.mjs eval/test-provenance.mjs eval/test-adversarial.mjs && node eval/test-metadata-pipeline.mjs",
+    "test:ext": "node eval/test-extension.mjs",
+    "test:all": "npm run test && npm run test:ext",
+    "eval": "node eval/run-eval.mjs",
+    "dataset": "node eval/fetch-dataset.mjs --per-class 120",
+    "models": "node eval/fetch-model.mjs",
+    "build": "bash build/build.sh",
+    "stats": "node eval/metadata-stats.mjs",
+    "vendor:c2pa": "node build/vendor-c2pa.mjs"
+  },
+  "devDependencies": {
+    "@contentauth/c2pa-web": "0.16.0",
+    "esbuild": "0.28.2",
+    "onnxruntime-web": "^1.27.0",
+    "puppeteer-core": "^25.14.0",
+    "terser": "^5.48.0"
+  }
+}

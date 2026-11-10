@@ -1,0 +1,16 @@
+# 统一换行符，避免 Windows 贡献者产生整文件 diff
+* text=auto eol=lf
+
+# 二进制文件：不要做任何换行/合并处理
+*.wasm   binary
+*.onnx   binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.zip    binary
+
+# 生成物与依赖：GitHub 语言统计里排除
+package-lock.json  linguist-generated=true
+lib/*              linguist-vendored=true
+models/*           linguist-vendored=true
+test-c2pa/*        linguist-vendored=true

@@ -1,0 +1,15 @@
+{
+  "retrievedAt": "2026-11-10T11:35:51.502Z",
+  "sources": [
+    {
+      "name": "C2PA-TRUST-LIST.pem",
+      "url": "https://raw.githubusercontent.com/c2pa-org/conformance-public/main/trust-list/C2PA-TRUST-LIST.pem",
+      "sha256": "148c1c167e98dc909a0d5793d2feee1022aa60fef5c83a0d6b08f67f4446bc37"
+    },
+    {
+      "name": "C2PA-TSA-TRUST-LIST.pem",
+      "url": "https://raw.githubusercontent.com/c2pa-org/conformance-public/main/trust-list/C2PA-TSA-TRUST-LIST.pem",
+      "sha256": "eca8347ee71e31d226e00c85b15aca356116fefe6c26ed8c0ee1f954115b1990"
+    }
+  ]
+}

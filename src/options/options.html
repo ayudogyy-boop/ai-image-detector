@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置 — 图片真实性检测</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      margin: 0; padding: 20px;
+      max-width: 600px;
+    }
+    h1 { font-size: 20px; margin: 0 0 20px 0; }
+    h2 { font-size: 14px; margin: 16px 0 8px 0; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    a { color: #93c5fd; text-underline-offset: 3px; }
+    a:hover { color: #bfdbfe; }
+
+    .setting-group {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+    }
+
+    .setting-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0;
+    }
+    .setting-row:not(:last-child) { border-bottom: 1px solid #334155; }
+
+    .setting-label { font-size: 13px; }
+    .setting-desc { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+    select, input[type="number"] {
+      background: #334155; color: #e2e8f0; border: 1px solid #475569;
+      border-radius: 4px; padding: 4px 8px; font-size: 12px;
+    }
+
+    .toggle {
+      position: relative; display: inline-block; width: 36px; height: 20px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #475569; border-radius: 20px; transition: 0.3s;
+    }
+    .toggle .slider::before {
+      content: ''; position: absolute; height: 16px; width: 16px;
+      left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: 0.3s;
+    }
+    .toggle input:checked + .slider { background: #22c55e; }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+    .btn {
+      background: #3b82f6; color: #fff; border: none; border-radius: 6px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn-reset { background: #475569; }
+    .btn-reset:hover { background: #64748b; }
+
+    .footer { margin-top: 20px; display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🛡 图片真实性检测 — 设置</h1>
+
+  <h2>通用</h2>
+  <div class="setting-group">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">启用扩展</div>
+        <div class="setting-desc">全局开关</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="s-enabled"><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <h2>分数与颜色</h2>
+  <div class="setting-group">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">低于 40 红色 · 40–60 黄色 · 高于 60 绿色</div>
+        <div class="setting-desc">分数越低，模型越倾向 AI；40 和 60 均为黄色。分数仅供参考。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>触发方式</h2>
+  <div class="setting-group">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">桌面悬停检测</div>
+        <div class="setting-desc">鼠标悬停图片超过设定时间后显示</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="s-showOnHover" checked><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">悬停延迟 (ms)</div>
+        <div class="setting-desc">鼠标停留多久后开始分析</div>
+      </div>
+      <select id="s-hoverDelay">
+        <option value="500">0.5 秒</option>
+        <option value="1000">1 秒</option>
+        <option value="1500">1.5 秒</option>
+        <option value="2000">2 秒</option>
+        <option value="3000" selected>3 秒</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">移动端检测</div>
+        <div class="setting-desc">进入页面后自动分析可见图片</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="s-showOnMobile" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <h2>检测信号</h2>
+  <div class="setting-group">
+    <div class="setting-row">
+      <div><div class="setting-label">AI 模型分析</div><div class="setting-desc">基于 ViT 神经网络的 AI 图像检测（主要评分信号）</div></div>
+      <label class="toggle"><input type="checkbox" id="sig-onnx" checked><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">C2PA 溯源</div><div class="setting-desc">本地验证 C2PA 签名和完整资产绑定；需下载整张图。IPTC 只作为未验签来源声明展示。</div></div>
+      <label class="toggle"><input type="checkbox" id="sig-c2pa" checked><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">文件信息</div><div class="setting-desc">尺寸、宽高比（仅供参考，不参与评分）</div></div>
+      <label class="toggle"><input type="checkbox" id="sig-fileinfo" checked><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">EXIF 元数据</div><div class="setting-desc">EXIF/XMP 软件串、PNG 文本块、JPEG 注释；相机型号仅展示，生成参数标明未验签</div></div>
+      <label class="toggle"><input type="checkbox" id="sig-exif" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <h2>官方水印核验</h2>
+  <div class="setting-group" style="font-size:13px;line-height:1.7">
+    扩展保持本地处理，不自动上传图片。SynthID 和 Content Seal 需通过官方服务手动核验；打开以下入口后由你自行选择文件。未检出水印不代表图片真实。
+    <p><a href="https://openai.com/verify" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">OpenAI 核验</a> ·
+    <a href="https://synthid.com/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Google SynthID</a> ·
+    <a href="https://www.meta.ai/identification/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Meta Content Seal</a></p>
+  </div>
+
+  <div class="footer">
+    <button class="btn" id="save-btn">保存设置</button>
+    <button class="btn btn-reset" id="reset-btn">恢复默认</button>
+    <span id="save-status" style="font-size:12px;color:#22c55e;display:flex;align-items:center;"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

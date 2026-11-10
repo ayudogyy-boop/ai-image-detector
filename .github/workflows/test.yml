@@ -1,0 +1,35 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖（仅测试用）
+        run: npm ci
+
+      - name: 元数据解析单测（纯 Node）
+        run: node eval/test-metadata.mjs
+
+      - name: 流水线测试（Node + 真实 Chrome）
+        run: node eval/test-metadata-pipeline.mjs
+
+      - name: 真机端到端（把扩展装进 Chrome）
+        run: node eval/test-extension.mjs
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: 打包（含引用完整性自检）
+        run: bash build/build.sh

@@ -1,0 +1,53 @@
+{
+  "_comment": "候选模型登记表。current 用仓库里已有的线上模型；其余由 eval/fetch-model.mjs 下载并自动推导参数。",
+  "_quantization_comment": "current-* 是同一个模型的不同量化档位（2026-10 审查新增）。线上跑的是 Q4，而模型卡自称的 74% 是 fp32 的成绩——量化损耗此前从未被测量过。",
+  "current": {
+    "displayName": "当前线上模型 (distilled ViT, Q4, 10.6MB)",
+    "localPath": "models/detector.onnx",
+    "source": "onnx-community/ai-image-detect-distilled-ONNX",
+    "resolved": {
+      "inputWidth": 224,
+      "inputHeight": 224,
+      "mean": [0.5, 0.5, 0.5],
+      "std": [0.5, 0.5, 0.5],
+      "aiClassIndex": 0,
+      "aiClassReason": "已核实原始 config.json 的 id2label = {\"0\":\"fake\",\"1\":\"real\"}",
+      "note": "参数取自该模型仓库的 preprocessor_config.json：do_resize + size 224×224、无 center crop、resample=2"
+    }
+  },
+  "current-fp32": {
+    "displayName": "同模型 · fp32 (58MB)",
+    "repo": "onnx-community/ai-image-detect-distilled-ONNX",
+    "onnx": "onnx/model.onnx"
+  },
+  "current-fp16": {
+    "displayName": "同模型 · fp16 (29MB)",
+    "repo": "onnx-community/ai-image-detect-distilled-ONNX",
+    "onnx": "onnx/model_fp16.onnx"
+  },
+  "current-int8": {
+    "displayName": "同模型 · int8 (15MB)",
+    "repo": "onnx-community/ai-image-detect-distilled-ONNX",
+    "onnx": "onnx/model_int8.onnx"
+  },
+  "current-q4f16": {
+    "displayName": "同模型 · q4f16 (8.9MB)",
+    "repo": "onnx-community/ai-image-detect-distilled-ONNX",
+    "onnx": "onnx/model_q4f16.onnx"
+  },
+  "smogy": {
+    "displayName": "SMOGY Ai-images-detector (Q4)",
+    "repo": "onnx-community/SMOGY-Ai-images-detector-ONNX",
+    "onnx": "onnx/model_q4.onnx"
+  },
+  "deepfake-v2": {
+    "displayName": "Deep-Fake-Detector-v2 (Q4)",
+    "repo": "zonn-ai/Deep-Fake-Detector-v2-Model-ONNX",
+    "onnx": "onnx/model_q4.onnx"
+  },
+  "aid-vit": {
+    "displayName": "onnx-community/ai-image-detection (Q4)",
+    "repo": "onnx-community/ai-image-detection-ONNX",
+    "onnx": "onnx/model_q4.onnx"
+  }
+}
