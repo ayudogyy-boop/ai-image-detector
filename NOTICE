@@ -1,0 +1,34 @@
+AI Image Detector
+Copyright (c) 2026 ayudogy. Project code is provided under LICENSE (MIT).
+Repository access is private by the owner's choice; visibility does not replace or revoke a license.
+
+Bundled third-party materials retain their own terms:
+
+- lib/ort*.js, lib/ort*.mjs, lib/ort*.wasm: ONNX Runtime Web 1.27.0,
+  Microsoft Corporation, MIT. See lib/ONNXRUNTIME-LICENSE.txt,
+  lib/ONNXRUNTIME-ThirdPartyNotices.txt and lib/ONNXRUNTIME-SOURCES.md.
+- lib/c2pa/: @contentauth/c2pa-web 0.16.0 and dependencies, MIT / ISC;
+  see lib/c2pa/THIRD-PARTY-LICENSES.txt and lib/c2pa/SOURCES.md.
+- lib/c2pa/*TRUST-LIST.pem: C2PA Conformance Program, unmodified public
+  snapshots dated 2026-11-10, CC BY 4.0. See lib/c2pa/TRUST-LIST-LICENSE.txt
+  and lib/c2pa/trust-snapshot.json for attribution, URLs and hashes.
+- models/detector.onnx: ONNX conversion of jacoballessio/ai-image-detect-distilled,
+  published by onnx-community with an MIT declaration in its model card.
+  See models/SOURCES.md for the source, hash and unresolved license-text review.
+
+Repository-only test materials (NOT included in the extension ZIP):
+
+- test-c2pa/sdk-c.jpg: C2PA SDK MIT fixture; attribution and hash in
+  test-c2pa/sdk-c-source.json. The SDK license text is in lib/c2pa/.
+- Other test-c2pa/*.jpg: original authors retain copyright; historical copies
+  lack complete source/permission records. Test use describes their purpose,
+  not a grant of redistribution rights. Their redistribution needs review.
+
+Referenced providers' names and trademarks remain theirs; no affiliation or
+endorsement is implied. Provider verification links require manual use and are
+governed by the providers' terms. This extension has no hosted verification
+service, activation server, subscription or commercial-service authorization.
+
+AIHOT architecture and licensing were studied as references, not bundled:
+https://github.com/KKKKhazix/AIHOT
+No AIHOT code, branding, data or hosted service is included.

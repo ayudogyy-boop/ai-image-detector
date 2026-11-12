@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Image Authenticity Detector",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "本地分析图片AI线索：C2PA验签、来源声明与模型估计分层显示；不上传图片，不把未检出水印当作真实证明。",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -20,6 +20,7 @@
         "<all_urls>"
       ],
       "js": [
+        "src/shared/contracts.js",
         "src/shared/scoring.js",
         "src/content/content.js"
       ],

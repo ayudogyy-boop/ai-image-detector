@@ -100,6 +100,7 @@
         'model-load-timeout': '模型文件加载超时', 'model-init-failed': '模型初始化失败',
         'model-inference-failed': '模型推理失败', 'model-output-invalid': '模型返回了无效结果',
         'image-fetch-failed': '图片请求失败', 'image-http-error': '图片服务器返回错误',
+        'image-invalid-request': '图片地址或分析参数不受支持',
         'image-fetch-timeout': '图片读取超时', 'image-read-failed': '图片读取中断',
         'image-too-large': '图片超过 40MB 上限', 'image-empty': '图片内容为空',
         'image-decode-failed': '图片无法解码', 'analysis-unavailable': '检测服务暂不可用',

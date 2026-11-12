@@ -1,8 +1,18 @@
 # eval/ — 离线评测
 
-当前版本为 2.2.1。水印/溯源升级与新指标见 [本轮调研](PROVENANCE-RESEARCH-2026-11-10.md)。下方 2026-09/10 的数字是历史结果，不能当作当前策略；对应 JSON 均保留。
+当前本地验证版本为 2.2.2。水印/溯源升级与指标见 [前次调研](PROVENANCE-RESEARCH-2026-11-10.md)。下方 2026-09/10 的数字是历史结果，不能当作当前策略；对应 JSON 均保留。
 
 随后完成的 [对抗性审查](ADVERSARIAL-REVIEW-2026-11-10.md) 记录故障注入、修复与待审查取舍。
+
+## 2.2.2：共享设置与消息边界
+
+新增 `test-contracts.mjs`：覆盖不完整/损坏设置、字段删除、信号替换、消息类型/URL/布尔值校验、发送方角色、就绪回执伪造与后台转发。工程回归额外验证 offscreen 拒绝 content/UI 直接调用；真实 Chrome 增加 options 和 popup 的读取、保存、恢复默认和开关操作。
+
+2026-11-12 本地验证 202 项通过：57 元数据、11 契约、19 工程回归、20 溯源/评分、3 对抗性、29 流水线、63 Chrome。最终 ZIP 解压至独立目录，63 项 Chrome 检查全部通过；本地构建故障注入另确认缺少 NOTICE、缺少 contracts.js、混入 test-c2pa 三种包均被拒绝。
+
+验证包：`build/artifacts/ai-image-detector-v2.2.2.zip`，SHA-256 `7c095e289186eac7b282170b3391dfcbc5bc7b35a9252cc61c46ee61d319665d`。39 个未压缩交付文件与本地逐字节一致，content.js 压缩后通过实际交互验证；包内没有测试图、评测数据或私有配置。该文件是本地验证产物，不代表发布许可或 GitHub 更新。
+
+没有改变检测策略、模型或评分，所以本轮没有重跑 240 张数据集；下方 AUC 与颜色分布仍是 2.2.1 的历史实测，不能称为 2.2.2 新增准确率验证。AIHOT 调研与实现范围见 [源码对照](../docs/AIHOT-REVIEW-2026-11-12.md)。
 
 ## 2.2.1：模型不可用与失败缓存恢复
 
@@ -76,9 +86,9 @@ node eval/run-eval.mjs                        # 评测当前线上模型
 node eval/run-eval.mjs --model all            # 评测全部候选并输出对比表
 node eval/run-eval.mjs --limit 40             # 冒烟测试，每类 20 张
 node eval/test-metadata.mjs                   # 元数据解析与判定单测（纯 Node，57 项）
-node --test eval/test-regressions.mjs eval/test-provenance.mjs eval/test-adversarial.mjs # 工程、溯源与对抗性回归
+node --test eval/test-contracts.mjs eval/test-regressions.mjs eval/test-provenance.mjs eval/test-adversarial.mjs # 契约、工程、溯源与对抗性回归
 node eval/test-metadata-pipeline.mjs          # 流水线测试：Node + 真实浏览器各跑一遍（29 项）
-node eval/test-extension.mjs                  # 真机端到端：把扩展装进 Chrome 跑 59 项检查
+node eval/test-extension.mjs                  # 真机端到端：含真实设置页与 popup
 node eval/metadata-stats.mjs                  # 来源自述覆盖率统计
 ```
 

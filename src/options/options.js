@@ -1,24 +1,18 @@
 // Options page script
-const DEFAULTS = {
-  enabled: true,
-  hoverDelay: 3000,
-  mobileDetectDelay: 3000,
-  showOnHover: true,
-  showOnMobile: true,
-  signals: {
-    onnx: true,
-    c2pa: true,
-    fileinfo: true,
-    exif: true
-  }
-};
+const { DEFAULTS, normalizeSettings } = AIDContracts;
+document.getElementById('s-hoverDelay').replaceChildren(...AIDContracts.HOVER_DELAYS.map((delay) => {
+  const option = document.createElement('option');
+  option.value = String(delay);
+  option.textContent = `${delay / 1000} 秒`;
+  return option;
+}));
 
 const fields = [
   'enabled', 'hoverDelay', 'showOnHover', 'showOnMobile'
 ];
 
 async function load() {
-  const settings = await chrome.storage.sync.get(DEFAULTS);
+  const settings = normalizeSettings(await chrome.storage.sync.get(DEFAULTS));
   for (const key of fields) {
     const el = document.getElementById(`s-${key}`);
     if (!el) continue;
@@ -41,7 +35,7 @@ async function save() {
   }
   // Numeric conversion
   const delay = Number(settings.hoverDelay);
-  settings.hoverDelay = [500, 1000, 1500, 2000, 3000].includes(delay) ? delay : DEFAULTS.hoverDelay;
+  settings.hoverDelay = delay;
 
   settings.signals = {};
   for (const key of Object.keys(DEFAULTS.signals)) {
@@ -49,7 +43,9 @@ async function save() {
     settings.signals[key] = el ? el.checked : true;
   }
 
-  await chrome.storage.sync.set(settings);
+  // 只写本页编辑的字段，保留旧版敏感度及移动端延时。
+  const normalized = normalizeSettings(settings);
+  await chrome.storage.sync.set(Object.fromEntries([...fields, 'signals'].map((key) => [key, normalized[key]])));
 
   const status = document.getElementById('save-status');
   status.textContent = '✓ 已保存';

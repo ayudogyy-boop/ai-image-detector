@@ -6,7 +6,7 @@
   document.querySelector('.version').textContent = 'v' + chrome.runtime.getManifest().version;
 
   // Load settings
-  const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+  const settings = AIDContracts.normalizeSettings(await chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.SETTINGS }));
   toggleEnabled.checked = settings.enabled !== false;
 
   // Toggle handler
@@ -18,7 +18,7 @@
   // Try to get page analysis summary from content script
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SUMMARY' });
+    const response = await chrome.tabs.sendMessage(tab.id, { type: AIDContracts.MESSAGE.SUMMARY });
     if (response && response.summary) {
       const s = response.summary;
       summaryArea.innerHTML = `

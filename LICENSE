@@ -22,17 +22,9 @@ SOFTWARE.
 
 ---
 
-## 第三方组件
+## 第三方材料说明（不修改上述 MIT 授权）
 
-本仓库内含以下第三方产物，各自的许可与来源：
-
-| 路径 | 组件 | 许可 | 来源 |
-|---|---|---|---|
-| `lib/ort*.js` / `lib/ort*.wasm` / `lib/ort*.mjs` | ONNX Runtime Web 1.27.0 | MIT | https://github.com/microsoft/onnxruntime |
-| `lib/c2pa/` | C2PA Web SDK 0.16.0 与依赖（本地 worker URL 兼容补丁） | MIT / ISC，见目录内完整许可 | https://github.com/contentauth/c2pa-js |
-| `lib/c2pa/*TRUST-LIST.pem` | C2PA 官方公开信任列表原样快照 | CC BY 4.0，见 TRUST-LIST-LICENSE.txt | https://github.com/c2pa-org/conformance-public |
-| `test-c2pa/sdk-c.jpg` | C2PA SDK 正向测试夹具 | SDK 仓库 MIT，见 sdk-c-source.json | https://github.com/contentauth/c2pa-js |
-| `models/detector.onnx` | ai-image-detect-distilled（distilled ViT，Q4） | MIT | https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX |
-| `test-c2pa/*.jpg` | 测试样本（含 C2PA / 相机 EXIF） | 仅作测试夹具使用，版权归原作者 | — |
-
-`test-c2pa/` 下的图片**仅用于自动化测试的输入样本**，不作任何再分发或商业用途。
+第三方代码、模型、信任列表与测试图片保留各自的权利和条款，见根目录
+`NOTICE`、`docs/LICENSING.md` 以及组件目录内完整许可和来源记录。
+上游模型卡声明 MIT，但完整模型版权告知尚待归档；历史测试图片的用途说明
+不构成再分发许可，须逐图核对，不能由本项目 MIT 一并授权。

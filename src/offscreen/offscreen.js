@@ -55,7 +55,7 @@ function init() {
       clearTimeout(timer);
       initialized = true;
       // 模型失败也能处理元数据；不要让 SW 在创建文档阶段丢弃整次请求。
-      chrome.runtime.sendMessage({ type: '__OFFSCREEN_READY__' }).catch(() => {});
+      chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.READY }).catch(() => {});
     }
     return !!session;
   })().finally(() => { modelInitPromise = null; });
@@ -204,15 +204,21 @@ async function analyzeAsset(url, needOnnx, needMeta, needC2pa) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (AIDContracts.senderRole(sender, chrome.runtime) !== 'background' || !msg || typeof msg !== 'object') return;
   // SW 的就绪探针：这是唯一可信的"能不能干活"判据。
   // 旧实现只在 init() 时发一次 __OFFSCREEN_READY__，SW 一重启就永久错失该信号。
-  if (msg.type === '__OFFSCREEN_PING__') {
+  if (msg.type === AIDContracts.MESSAGE.PING) {
     sendResponse({ ready: initialized, modelReady: !!session, error: loadError, errorCode: loadErrorCode });
     return;
   }
 
-  if (msg.type === 'IMAGE_ANALYZE') {
-    analyzeImage(msg.url, msg.needOnnx !== false, msg.needMeta !== false, msg.needC2pa !== false)
+  if (msg.type === AIDContracts.MESSAGE.RUN) {
+    const request = AIDContracts.normalizeAnalysisRequest(msg, AIDContracts.MESSAGE.RUN);
+    if (!request) {
+      sendResponse({ ok: false, errorCode: 'image-invalid-request', error: 'invalid analysis request' });
+      return;
+    }
+    analyzeImage(request.url, request.needOnnx, request.needMeta, request.needC2pa)
       .then(sendResponse)
       .catch((err) => sendResponse({ error: err && err.message ? err.message : String(err) }));
     return true;

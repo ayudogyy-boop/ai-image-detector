@@ -46,7 +46,7 @@ const __AID_cache = new AnalysisCache();
 // ---- Signal 1: 视觉模型 + 元数据（一次请求，off screen 只下载一次） ----
 async function __AID_analyzeRemote(src, needOnnx, needMeta, needC2pa) {
   try {
-    const r = await chrome.runtime.sendMessage({ type: 'ANALYZE_IMAGE', url: src, needOnnx, needMeta, needC2pa });
+    const r = await chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.ANALYZE, url: src, needOnnx, needMeta, needC2pa });
     if (!r) return { ok: false, error: 'analysis-unavailable' };
     return r;
   } catch (err) { return { ok: false, errorCode: 'analysis-unavailable', error: String(err?.message || err).slice(0, 160) }; }
@@ -237,18 +237,12 @@ const __AID_badge = {
     img.setAttribute('data-aid-processed', 'true');
   }
 
-  const DEFAULTS = {
-    enabled: true, sensitivity: 'medium', hoverDelay: 3000, mobileDetectDelay: 3000,
-    showOnHover: true, showOnMobile: true,
-    signals: { onnx: true, c2pa: true, fileinfo: true, exif: true },
-  };
-
   async function loadSettings() {
     try {
-      const s = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
-      return Object.assign({}, DEFAULTS, s || {});
+      const s = await chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.SETTINGS });
+      return AIDContracts.normalizeSettings(s);
     } catch (_) {
-      return Object.assign({}, DEFAULTS);
+      return AIDContracts.normalizeSettings();
     }
   }
 
@@ -407,7 +401,8 @@ const __AID_badge = {
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === 'GET_SUMMARY') {
+    const role = AIDContracts.senderRole(sender, chrome.runtime);
+    if (msg?.type === AIDContracts.MESSAGE.SUMMARY && (role === 'ui' || role === 'background')) {
       // 汇总只统计"已分析过的图片"和它们的结果——徽章 DOM 会在鼠标移开时被移除，
       // 所以颜色统计不能从徽章节点里数（旧实现因此永远显示 0/0/0）。
       let g = 0, y = 0, r = 0, u = 0;
@@ -429,14 +424,9 @@ const __AID_badge = {
       // 设置变更即时生效（旧实现只在初始化时读一次，改完必须刷新页面）
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'sync') return;
-        let touched = false;
-        for (const [k, v] of Object.entries(changes)) {
-          if (!(k in DEFAULTS)) continue;
-          if (k === 'signals') settings.signals = Object.assign({}, DEFAULTS.signals, v.newValue);
-          else settings[k] = v.newValue === undefined ? DEFAULTS[k] : v.newValue;
-          touched = true;
-        }
-        if (touched) {
+        const next = AIDContracts.applySettingsChanges(settings, changes);
+        if (next) {
+          settings = next;
           __AID_generation++;
           cancelHover();
           if (scanTimer) clearTimeout(scanTimer);

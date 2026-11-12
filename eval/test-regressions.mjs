@@ -8,6 +8,7 @@ import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 const md = require('../src/shared/metadata.js');
 const scoring = require('../src/shared/scoring.js');
+const contracts = require('../src/shared/contracts.js');
 const source = (name) => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
 const quiet = { log() {}, warn() {}, error() {} };
 
@@ -82,7 +83,7 @@ test('WebP 截断块不能伪造 VP8X 尺寸', () => {
 });
 
 function contentContext(sendMessage) {
-  const context = vm.createContext({ console: quiet, Date, AIDScoring: scoring,
+  const context = vm.createContext({ console: quiet, Date, AIDScoring: scoring, AIDContracts: contracts,
     chrome: { runtime: { sendMessage } } });
   vm.runInContext(source('src/content/content.js').split('// ---- Content Script Entry ----')[0], context);
   return context;
@@ -138,10 +139,10 @@ function offscreenContext() {
   const listeners = [], sent = [];
   const ctx = vm.createContext({ console: quiet, Blob, Uint8Array, Float32Array, AbortController,
     setTimeout: (fn) => setTimeout(fn, 0), clearTimeout,
-    AIDMetadata: { ...md, fetchBytesCapped: async () => new Uint8Array(32) }, window: {},
+    AIDMetadata: { ...md, fetchBytesCapped: async () => new Uint8Array(32) }, AIDContracts: contracts, URL, window: {},
     fetch: async () => ({ ok: false, status: 404 }),
     ort: { env: { wasm: {} }, Tensor: class {} },
-    chrome: { runtime: { getURL: (u) => u, sendMessage: async (m) => { sent.push(m); },
+    chrome: { runtime: { id: 'test', getURL: (u) => 'chrome-extension://test/' + u, sendMessage: async (m) => { sent.push(m); },
       onMessage: { addListener: (f) => listeners.push(f) } } } });
   vm.runInContext(source('src/offscreen/offscreen.js'), ctx);
   return { ctx, listeners, sent };
@@ -151,11 +152,28 @@ test('模型加载失败，文档仍就绪，元数据仍可返回', async () =>
   const { ctx, listeners, sent } = offscreenContext();
   await new Promise((r) => setImmediate(r));
   let ping;
-  listeners[0]({ type: '__OFFSCREEN_PING__' }, {}, (r) => { ping = r; });
+  listeners[0]({ type: '__OFFSCREEN_PING__' }, { id: 'test', url: 'chrome-extension://test/src/background.js' }, (r) => { ping = r; });
   assert.equal(ping.ready, true); assert.equal(ping.modelReady, false);
   assert.equal(sent[0].type, '__OFFSCREEN_READY__');
   const result = await vm.runInContext('analyzeImage("test", true, true)', ctx);
   assert.ok(result.meta); assert.match(result.onnxError, /404/);
+});
+
+test('offscreen 拒绝 content/UI 直接发任务，后台非法载荷也不触发下载', async () => {
+  const { ctx, listeners } = offscreenContext();
+  let downloads = 0, reply;
+  ctx.AIDMetadata.fetchBytesCapped = async () => { downloads++; return new Uint8Array(32); };
+  const message = { type: 'IMAGE_ANALYZE', url: 'https://example.test/a', needOnnx: false, needC2pa: false };
+  for (const sender of [{ id: 'test', url: 'https://example.test/', tab: { id: 1 } },
+    { id: 'test', url: 'chrome-extension://test/src/options/options.html' },
+    { id: 'other', url: 'chrome-extension://test/src/background.js' }]) {
+    listeners[0](message, sender, (r) => { reply = r; });
+  }
+  const background = { id: 'test', url: 'chrome-extension://test/src/background.js' };
+  listeners[0]({ ...message, needMeta: 'false' }, background, (r) => { reply = r; });
+  assert.equal(reply.errorCode, 'image-invalid-request'); assert.equal(downloads, 0);
+  await new Promise((resolve) => listeners[0](message, background, resolve));
+  assert.equal(downloads, 1);
 });
 
 test('首次加载失败后并发推理共享一次重载，恢复成功不再重载', async () => {
@@ -243,11 +261,11 @@ test('同一 ONNX session 不并发 run；一项失败不阻塞后续请求', as
 
 test('offscreen READY 早于 createDocument 完成时不遗留超时器', async () => {
   let listener;
-  const ctx = vm.createContext({ console: quiet, setTimeout, clearTimeout,
-    chrome: { runtime: { getURL: (u) => 'chrome-extension://test/' + u,
+  const ctx = vm.createContext({ console: quiet, setTimeout, clearTimeout, AIDContracts: contracts, importScripts() {},
+    chrome: { runtime: { id: 'test', getURL: (u) => 'chrome-extension://test/' + u,
       onMessage: { addListener: (f) => { listener = f; } } },
       offscreen: { hasDocument: async () => false, createDocument: async () => {
-        listener({ type: '__OFFSCREEN_READY__' }, { url: 'chrome-extension://test/src/offscreen/offscreen.html' }, () => {});
+        listener({ type: '__OFFSCREEN_READY__' }, { id: 'test', url: 'chrome-extension://test/src/offscreen/offscreen.html' }, () => {});
       } }, onInstalled: { addListener() {} } } });
   // onInstalled 实际位于 runtime。
   ctx.chrome.runtime.onInstalled = { addListener() {} };

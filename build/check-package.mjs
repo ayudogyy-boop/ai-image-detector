@@ -23,10 +23,17 @@ const entries = [manifest.background.service_worker, manifest.action.default_pop
   ...Object.values(manifest.icons || {}), ...Object.values(manifest.action.default_icon || {}),
   ...(manifest.content_scripts || []).flatMap((c) => [...(c.js || []), ...(c.css || [])]),
   'models/detector.onnx', 'lib/ort.wasm.min.js', 'lib/ort-wasm-simd-threaded.wasm',
-  'lib/ort-wasm-simd-threaded.mjs', 'LICENSE',
+  'lib/ort-wasm-simd-threaded.mjs', 'LICENSE', 'NOTICE', 'lib/ONNXRUNTIME-LICENSE.txt',
+  'lib/ONNXRUNTIME-ThirdPartyNotices.txt', 'lib/ONNXRUNTIME-SOURCES.md', 'models/SOURCES.md', 'docs/LICENSING.md',
   'lib/c2pa/index.mjs', 'lib/c2pa/c2pa_worker.js', 'lib/c2pa/c2pa_bg.wasm',
-  'lib/c2pa/C2PA-TRUST-LIST.pem', 'lib/c2pa/C2PA-TSA-TRUST-LIST.pem', 'lib/c2pa/trust-snapshot.json'];
+  'lib/c2pa/C2PA-TRUST-LIST.pem', 'lib/c2pa/C2PA-TSA-TRUST-LIST.pem', 'lib/c2pa/trust-snapshot.json',
+  'lib/c2pa/THIRD-PARTY-LICENSES.txt', 'lib/c2pa/TRUST-LIST-LICENSE.txt', 'lib/c2pa/SOURCES.md'];
 for (const ref of entries.filter(Boolean)) await check(ref);
+for (const entry of await readdir(root)) {
+  if (['eval', 'test-c2pa', 'node_modules', '.git'].includes(entry) || /^\.env(?:\.|$)/.test(entry)) {
+    throw new Error(`验证包不应包含开发/测试或私有文件: ${entry}`);
+  }
+}
 
 async function walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {

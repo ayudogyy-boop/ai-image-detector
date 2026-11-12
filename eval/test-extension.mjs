@@ -127,6 +127,40 @@ browser = await puppeteer.launch({
     swEnv.sensitivity === 'medium' && swEnv.hasSignals, swEnv);
   check('SW 的路由函数已定义', swEnv.hasAskOffscreen && swEnv.hasEnsureOffscreen, swEnv);
 
+  // 真正的 options 页面必须与后台读到相同的部分设置，而非沿用 HTML 默认勾选。
+  const options = await browser.newPage();
+  const extensionBase = `chrome-extension://${new URL(swTarget.url()).host}`;
+  await sw.evaluate(async () => chrome.storage.sync.set({ signals: { onnx: false }, enabled: 'false', hoverDelay: -1 }));
+  await options.goto(`${extensionBase}/src/options/options.html`, { waitUntil: 'load' });
+  const optionState = await options.evaluate(async () => {
+    await load();
+    const settings = await chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.SETTINGS });
+    return { settings, enabled: document.getElementById('s-enabled').checked,
+      onnx: document.getElementById('sig-onnx').checked, c2pa: document.getElementById('sig-c2pa').checked,
+      delay: document.getElementById('s-hoverDelay').value };
+  });
+  check('实际设置页与后台统一修复旧版/损坏设置', optionState.enabled && !optionState.onnx && optionState.c2pa &&
+    optionState.delay === '3000' && optionState.settings.signals.exif === true && optionState.settings.enabled === true, optionState);
+  await options.evaluate(async () => {
+    document.getElementById('s-hoverDelay').value = '500';
+    document.getElementById('sig-exif').checked = false;
+    await save();
+  });
+  const saved = await sw.evaluate(async () => chrome.storage.sync.get(DEFAULTS));
+  check('实际设置页保存规范布尔值与延时，不丢失其他 signals', saved.enabled === true && saved.hoverDelay === 500 &&
+    saved.signals.onnx === false && saved.signals.exif === false && saved.signals.c2pa === true, saved);
+  await options.evaluate(async () => reset());
+  await sw.evaluate(() => chrome.storage.sync.set({ enabled: true }));
+  await options.goto(`${extensionBase}/src/popup/popup.html`, { waitUntil: 'load' });
+  await options.waitForFunction(() => document.getElementById('toggle-enabled').checked);
+  check('真实 popup 使用同一设置契约并显示运行版本', await options.$eval('.version',
+    (el) => el.textContent === 'v' + chrome.runtime.getManifest().version));
+  await options.click('label.toggle');
+  await options.waitForFunction(async () => (await chrome.storage.sync.get('enabled')).enabled === false);
+  check('真实 popup 开关可写回共享设置', true);
+  await sw.evaluate(() => chrome.storage.sync.set({ enabled: true }));
+  await options.close();
+
   // ── ② offscreen + 推理 ─────────────────────────────────────────
   console.log('\n② offscreen 文档 & 冷启动推理');
   const cold = await sw.evaluate(async (u) => {

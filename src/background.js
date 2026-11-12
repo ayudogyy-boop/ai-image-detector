@@ -13,7 +13,9 @@
 //      而且 SW 一旦真的重启，keepalive 自己也不会再启动。
 // 现在改成**按需自愈**：不依赖任何常驻信号，每次请求先问 offscreen "你还活着吗"，
 // 不响应就关掉重建。keepalive 已彻底删除。
-const OFFSCREEN_URL = 'src/offscreen/offscreen.html';
+importScripts('shared/contracts.js');
+const { DEFAULTS, MESSAGE, normalizeSettings, normalizeAnalysisRequest, senderRole } = AIDContracts;
+const OFFSCREEN_URL = AIDContracts.OFFSCREEN_PATH;
 const READY_TIMEOUT_MS = 20000;   // 模型加载 + WASM 编译的兜底上限（实测冷启动 ~1.5s）
 const PING_TIMEOUT_MS = 2000;
 
@@ -38,7 +40,7 @@ async function hasOffscreen() {
 async function pingOffscreen(timeoutMs) {
   try {
     const r = await Promise.race([
-      chrome.runtime.sendMessage({ type: '__OFFSCREEN_PING__' }),
+      chrome.runtime.sendMessage({ type: MESSAGE.PING }),
       sleep(timeoutMs || PING_TIMEOUT_MS).then(() => null),
     ]);
     return !!(r && r.ready);
@@ -106,37 +108,28 @@ async function askOffscreen(payload) {
 }
 
 // ── 消息路由 ─────────────────────────────────────────────────────
-const DEFAULTS = {
-  sensitivity: 'medium',
-  hoverDelay: 3000,
-  mobileDetectDelay: 3000,
-  showOnHover: true,
-  showOnMobile: true,
-  enabled: true,
-  signals: { onnx: true, c2pa: true, fileinfo: true, exif: true },
-};
-
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'GET_SETTINGS') {
-    chrome.storage.sync.get(DEFAULTS, (settings) => { sendResponse(settings); });
+  const role = senderRole(sender, chrome.runtime);
+  if (!role || !msg || typeof msg !== 'object') return;
+  if (msg.type === MESSAGE.SETTINGS && (role === 'content' || role === 'ui')) {
+    chrome.storage.sync.get(DEFAULTS, (settings) => { sendResponse(normalizeSettings(settings)); });
     return true;
   }
 
-  if (msg.type === '__OFFSCREEN_READY__') {
-    if (sender.url === chrome.runtime.getURL(OFFSCREEN_URL)) settleReady(true);
+  if (msg.type === MESSAGE.READY) {
+    if (role === 'offscreen') settleReady(true);
     return;
   }
 
   // 一次性拿回「视觉模型结论 + 元数据事实 + 确定性判定」。
-  // needOnnx=false 时 offscreen 只抓文件头，不下载整图。
-  if (msg.type === 'ANALYZE_IMAGE') {
-    askOffscreen({
-      type: 'IMAGE_ANALYZE',
-      url: msg.url,
-      needOnnx: msg.needOnnx !== false,
-      needMeta: msg.needMeta !== false,
-      needC2pa: msg.needC2pa !== false,
-    }).then(sendResponse).catch(() => sendResponse(null));
+  // 模型与 C2PA 均关闭时才只抓文件头。
+  if (msg.type === MESSAGE.ANALYZE && role === 'content') {
+    const request = normalizeAnalysisRequest(msg, MESSAGE.ANALYZE);
+    if (!request) {
+      sendResponse({ ok: false, errorCode: 'image-invalid-request', error: 'invalid analysis request' });
+      return;
+    }
+    askOffscreen({ ...request, type: MESSAGE.RUN }).then(sendResponse).catch(() => sendResponse(null));
     return true;
   }
 });
