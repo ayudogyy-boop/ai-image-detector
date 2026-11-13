@@ -136,9 +136,16 @@ function __AID_escapeHtml(s) {
 }
 
 const __AID_badge = {
-  _el: null, _img: null,
+  _el: null, _img: null, _last: null, _appearance: AIDContracts.normalizeSettings(),
+  setAppearance(settings) {
+    this._appearance = AIDContracts.normalizeSettings(settings);
+    const previous = this._last;
+    if (previous) this.show(...previous);
+  },
   show(img, result, mx, my) {
     this.hide();
+    const appearance = this._appearance;
+    const size = appearance.badgeSize;
     const colors = { green: '#22c55e', yellow: '#eab308', red: '#ef4444', gray: '#64748b' };
     const labelMap = { green: '模型偏非 AI', yellow: '不确定', red: '模型疑似 AI' };
     const label = result.title || labelMap[result.color] || '无法判断';
@@ -146,13 +153,26 @@ const __AID_badge = {
     const el = document.createElement('div');
     el.style.cssText = `position:fixed;z-index:2147483647;left:${mx+12}px;top:${my+12}px;pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .2s ease;`;
     const circle = document.createElement('div');
-    circle.style.cssText = `width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:bold 11px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#fff;background:${color};box-shadow:0 2px 8px rgba(0,0,0,.35);position:relative;`;
+    circle.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:bold ${Math.round(size*.42)}px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#fff;background:${color};box-shadow:0 2px 8px rgba(0,0,0,.35);position:relative;isolation:isolate;`;
     circle.className = `aid-badge aid-badge-${result.color}`;
+    circle.dataset.theme = appearance.badgeTheme;
     circle.textContent = result.decidedBy === 'verified-provenance' ? 'AI' : result.decidedBy === 'declaration' ? '!' : result.confidence === 'none' ? '—' : result.score;
     circle.tabIndex = 0; circle.setAttribute('role', 'button'); circle.setAttribute('aria-label', label + '，查看证据');
     circle.title = label;
     const ring = document.createElement('div');
-    ring.style.cssText = `position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color};opacity:.4;animation:aid-pulse 2s ease-out infinite;`;
+    ring.className = 'aid-decoration'; ring.setAttribute('aria-hidden', 'true');
+    ring.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:-1;';
+    if (appearance.badgeTheme === 'ring') {
+      ring.style.cssText += `inset:-4px;border-radius:50%;border:2px solid ${color};opacity:.5;`;
+    } else {
+      const petals = appearance.badgeTheme === 'petals', count = petals ? 8 : 12;
+      for (let i = 0; i < count; i++) {
+        const part = document.createElement('span');
+        part.style.cssText = `position:absolute;left:50%;top:50%;width:${petals ? size*.35 : 2}px;height:${petals ? size*.55 : size*.26}px;border-radius:${petals ? '50%' : '2px'};background:${color};opacity:.6;transform:translate(-50%,-50%) rotate(${i*360/count}deg) translateY(-${size*.7}px);`;
+        ring.appendChild(part);
+      }
+    }
+    if (!appearance.reduceMotion) ring.style.animation = appearance.badgeTheme === 'ring' ? 'aid-pulse .7s ease-out' : 'aid-turn .7s ease-out';
     circle.appendChild(ring);
     const tip = document.createElement('div');
     tip.style.cssText = `display:none;position:absolute;top:calc(100% + 6px);left:0;background:rgba(24,24,36,.96);color:#fff;font:11px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:8px 10px;border-radius:8px;min-width:220px;white-space:nowrap;z-index:2147483647;box-shadow:0 4px 16px rgba(0,0,0,.5);`;
@@ -200,17 +220,23 @@ const __AID_badge = {
       html += `<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="width:70px;flex-shrink:0;color:#d1d5db">${sl[name]||name}</span><span style="flex:1;height:6px;background:#374151;border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${det.score}%;background:${color};border-radius:3px"></span></span><span style="width:24px;text-align:right;color:#9ca3af;font-size:10px">${det.score}</span></div>`;
     }
     html += '<div style="margin-top:8px;white-space:normal;max-width:280px">手动核验（需自行上传）：<br><a href="https://openai.com/verify" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" style="color:#93c5fd">OpenAI</a> · <a href="https://synthid.com/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" style="color:#93c5fd">Google SynthID</a> · <a href="https://www.meta.ai/identification/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" style="color:#93c5fd">Meta</a></div>';
+    html += '<button type="button" class="aid-evidence-open" style="margin-top:8px;background:#2563eb;color:#fff;border:0;border-radius:4px;padding:5px 8px;cursor:pointer;font:inherit">在工作台查看证据</button>';
     tip.innerHTML = html;
+    tip.querySelector('.aid-evidence-open').addEventListener('click', (event) => {
+      event.stopPropagation();
+      const src = img.currentSrc || img.src;
+      chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.OPEN, url: src }).catch(() => {});
+    });
     let tipVis = false;
     circle.addEventListener('click', (e) => { e.stopPropagation(); if (e.target.closest('a')) return; tipVis = !tipVis; tip.style.display = tipVis ? 'block' : 'none'; });
     circle.addEventListener('keydown', (e) => { if (e.target !== circle) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); circle.click(); } if (e.key === 'Escape') this.hide(); });
     circle.appendChild(tip); el.appendChild(circle); document.body.appendChild(el);
-    el.style.left = Math.max(4, Math.min(mx + 12, window.innerWidth - 42)) + 'px';
-    el.style.top = Math.max(4, Math.min(my + 12, window.innerHeight - 42)) + 'px';
+    el.style.left = Math.max(12, Math.min(mx + 12, window.innerWidth - size - 22)) + 'px';
+    el.style.top = Math.max(12, Math.min(my + 12, window.innerHeight - size - 22)) + 'px';
     requestAnimationFrame(() => { el.style.opacity = '1'; });
-    this._el = el; this._img = img;
+    this._el = el; this._img = img; this._last = [img, result, mx, my];
   },
-  hide() { if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el); this._el = null; this._img = null; },
+  hide() { if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el); this._el = null; this._img = null; this._last = null; },
   isActive(img) { return this._img === img; }
 };
 
@@ -218,6 +244,8 @@ const __AID_badge = {
 (function() {
   'use strict';
   let settings = {}, hoverTimer = null, hoveredImg = null, hx = 0, hy = 0;
+  let configuredSettings = AIDContracts.normalizeSettings();
+  const effectiveSettings = (s) => ({ ...s, enabled: s.enabled && !AIDContracts.isExcludedHost(location.hostname, s.excludedHosts) });
   let scanTimer = null, scanIdle = 0, scanning = false, mobileTimer = null;
   let hoverRequest = 0;
   const imageSources = new WeakMap();
@@ -402,6 +430,17 @@ const __AID_badge = {
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const role = AIDContracts.senderRole(sender, chrome.runtime);
+    if (msg?.type === AIDContracts.MESSAGE.LIST_IMAGES && role === 'workbench') {
+      const unique = new Set(), images = [];
+      for (const img of document.images) {
+        const url = img.currentSrc || img.src;
+        if (!shouldAnalyze(img) || unique.has(url)) continue;
+        if (!AIDContracts.normalizeAnalysisRequest({ type: AIDContracts.MESSAGE.ANALYZE, url }, AIDContracts.MESSAGE.ANALYZE)) continue;
+        unique.add(url); images.push({ url });
+        if (images.length >= AIDContracts.MAX_BATCH_ITEMS) break;
+      }
+      sendResponse({ images }); return;
+    }
     if (msg?.type === AIDContracts.MESSAGE.SUMMARY && (role === 'ui' || role === 'background')) {
       // 汇总只统计"已分析过的图片"和它们的结果——徽章 DOM 会在鼠标移开时被移除，
       // 所以颜色统计不能从徽章节点里数（旧实现因此永远显示 0/0/0）。
@@ -419,14 +458,20 @@ const __AID_badge = {
 
   async function init() {
     try {
-      settings = await loadSettings();
+      configuredSettings = await loadSettings();
+      settings = effectiveSettings(configuredSettings);
+      __AID_badge.setAppearance(settings);
 
       // 设置变更即时生效（旧实现只在初始化时读一次，改完必须刷新页面）
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'sync') return;
-        const next = AIDContracts.applySettingsChanges(settings, changes);
+        const next = AIDContracts.applySettingsChanges(configuredSettings, changes);
         if (next) {
-          settings = next;
+          configuredSettings = next;
+          settings = effectiveSettings(next);
+          const onlyAppearance = Object.keys(changes).every((key) => ['badgeTheme', 'badgeSize', 'reduceMotion'].includes(key));
+          if (onlyAppearance) { __AID_badge.setAppearance(settings); return; }
+          __AID_badge._appearance = settings;
           __AID_generation++;
           cancelHover();
           if (scanTimer) clearTimeout(scanTimer);

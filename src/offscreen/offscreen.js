@@ -73,14 +73,19 @@ async function ensureModel() {
 }
 
 /** 视觉模型的预处理：224×224 + (pixel/255-0.5)/0.5，与模型仓库的 preprocessor_config 一致 */
-function runInferenceOnBytes(bytes) {
-  const pending = inferenceQueue.then(async () => { await ensureModel(); return inferBytes(bytes); });
+function runInferenceOnBytes(bytes, dimensions) {
+  const pending = inferenceQueue.then(async () => { await ensureModel(); return inferBytes(bytes, dimensions); });
   inferenceQueue = pending.catch(() => {});
   return pending;
 }
 
-async function inferBytes(bytes) {
+async function inferBytes(bytes, dimensions) {
   if (!session) throw failure(loadErrorCode || 'model-init-failed', loadError || 'model not loaded');
+
+  const info = dimensions || AIDMetadata.extractMetadata(bytes);
+  if (Number.isFinite(info?.width) && Number.isFinite(info?.height) && info.width * info.height > 32000000) {
+    throw failure('image-pixel-limit', 'image dimensions exceed 32 million pixel decode budget');
+  }
 
   const blob = new Blob([bytes]);
   let bmp;
@@ -188,7 +193,7 @@ async function analyzeAsset(url, needOnnx, needMeta, needC2pa) {
       out.onnxErrorCode = out.fetchError?.code || 'image-fetch-failed';
     } else {
       try {
-        out.onnx = await runInferenceOnBytes(bytes);
+        out.onnx = await runInferenceOnBytes(bytes, out.meta);
       } catch (err) {
         out.onnxError = err && err.message ? err.message : String(err);
         out.onnxErrorCode = err?.code || 'model-inference-failed';
@@ -212,8 +217,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return;
   }
 
-  if (msg.type === AIDContracts.MESSAGE.RUN) {
-    const request = AIDContracts.normalizeAnalysisRequest(msg, AIDContracts.MESSAGE.RUN);
+  if (msg.type === AIDContracts.MESSAGE.RUN || msg.type === AIDContracts.MESSAGE.RUN_LOCAL) {
+    const request = msg.type === AIDContracts.MESSAGE.RUN_LOCAL
+      ? AIDContracts.normalizeLocalRequest(msg, msg.type, chrome.runtime)
+      : AIDContracts.normalizeAnalysisRequest(msg, msg.type);
     if (!request) {
       sendResponse({ ok: false, errorCode: 'image-invalid-request', error: 'invalid analysis request' });
       return;

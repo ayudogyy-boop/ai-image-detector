@@ -111,7 +111,7 @@ async function askOffscreen(payload) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const role = senderRole(sender, chrome.runtime);
   if (!role || !msg || typeof msg !== 'object') return;
-  if (msg.type === MESSAGE.SETTINGS && (role === 'content' || role === 'ui')) {
+  if (msg.type === MESSAGE.SETTINGS && ['content', 'ui', 'workbench'].includes(role)) {
     chrome.storage.sync.get(DEFAULTS, (settings) => { sendResponse(normalizeSettings(settings)); });
     return true;
   }
@@ -132,12 +132,90 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     askOffscreen({ ...request, type: MESSAGE.RUN }).then(sendResponse).catch(() => sendResponse(null));
     return true;
   }
+
+  if ([MESSAGE.TOOL_ANALYZE, MESSAGE.LOCAL_ANALYZE].includes(msg.type) && role === 'workbench') {
+    const local = msg.type === MESSAGE.LOCAL_ANALYZE;
+    const request = local ? AIDContracts.normalizeLocalRequest(msg, msg.type, chrome.runtime)
+      : normalizeAnalysisRequest(msg, msg.type);
+    if (!request) {
+      sendResponse({ ok: false, errorCode: 'image-invalid-request', error: 'invalid workbench request' });
+      return;
+    }
+    (async () => {
+      const settings = normalizeSettings(await chrome.storage.sync.get(DEFAULTS));
+      if (!settings.enabled) return { ok: false, errorCode: 'analysis-disabled', error: 'extension disabled' };
+      const result = await askOffscreen({ ...request, type: local ? MESSAGE.RUN_LOCAL : MESSAGE.RUN,
+        needOnnx: settings.signals.onnx, needMeta: settings.signals.c2pa || settings.signals.exif,
+        needC2pa: settings.signals.c2pa });
+      return { ...result, settingsUsed: settings };
+    })().then(sendResponse).catch((e) => sendResponse({ ok: false, errorCode: 'analysis-unavailable', error: String(e?.message || e).slice(0, 160) }));
+    return true;
+  }
+
+  if (msg.type === MESSAGE.OPEN && ['content', 'ui'].includes(role)) {
+    const request = msg.url ? normalizeAnalysisRequest({ ...msg, type: MESSAGE.ANALYZE }, MESSAGE.ANALYZE) : null;
+    if (msg.url && !request) { sendResponse({ ok: false }); return; }
+    const tabId = role === 'content' ? sender.tab?.id : msg.tabId;
+    openWorkbench(Number.isInteger(tabId) && tabId >= 0 ? tabId : null, request?.url,
+      role === 'content' ? sender.tab?.windowId : msg.windowId)
+      .then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+  if (msg.type === MESSAGE.TAKE_TASKS && role === 'workbench') {
+    takeTasks(msg.windowId).then((tasks) => sendResponse({ tasks })).catch(() => sendResponse({ tasks: [], error: '任务暂时无法读取，可在原图上重新右键。' }));
+    return true;
+  }
 });
+
+// 右键任务只在浏览器会话中短暂保存，不持久化检测结果或图片。
+let taskQueue = Promise.resolve();
+function taskOperation(fn) {
+  const pending = taskQueue.then(fn);
+  taskQueue = pending.catch(() => {});
+  return pending;
+}
+function enqueueTask(url, windowId) {
+  return taskOperation(async () => {
+    const stored = (await chrome.storage.session.get('workbenchTasks')).workbenchTasks;
+    const old = Array.isArray(stored) ? stored : [];
+    const tasks = old.filter((x) => x && Date.now() - x.createdAt < 15 * 60 * 1000 && !(x.url === url && x.windowId === windowId));
+    tasks.push({ url, createdAt: Date.now(), ...(Number.isInteger(windowId) && windowId >= 0 ? { windowId } : {}) });
+    await chrome.storage.session.set({ workbenchTasks: tasks.slice(-AIDContracts.MAX_BATCH_ITEMS) });
+  });
+}
+function takeTasks(windowId) {
+  return taskOperation(async () => {
+    const stored = (await chrome.storage.session.get('workbenchTasks')).workbenchTasks;
+    const tasks = (Array.isArray(stored) ? stored : []).filter((x) => x && Date.now() - x.createdAt < 15 * 60 * 1000);
+    const matches = (x) => !Number.isInteger(windowId) || !Number.isInteger(x.windowId) || x.windowId === windowId;
+    await chrome.storage.session.set({ workbenchTasks: tasks.filter((x) => !matches(x)) });
+    return tasks.filter(matches);
+  });
+}
+async function openWorkbench(tabId, url, windowId) {
+  // 必须先调用 open，保留菜单/按钮的用户手势；等待存储后再打开会丢失手势。
+  let opened;
+  try { opened = tabId === null ? Promise.reject(new Error('no tab')) : chrome.sidePanel.open({ tabId }); }
+  catch (_) { opened = Promise.reject(new Error('side panel unavailable')); }
+  const pendingOpen = Promise.resolve(opened).catch(() => chrome.tabs.create({ url: chrome.runtime.getURL(AIDContracts.WORKBENCH_PATH) }));
+  if (url) await enqueueTask(url, windowId);
+  await pendingOpen;
+  chrome.runtime.sendMessage({ type: MESSAGE.TASKS_CHANGED, windowId }).catch(() => {});
+}
+function handleImageContextMenu(info, tab) {
+  if (info.menuItemId !== 'aid-inspect-image') return;
+  const request = normalizeAnalysisRequest({ type: MESSAGE.ANALYZE, url: info.srcUrl }, MESSAGE.ANALYZE);
+  if (!request) return;
+  return openWorkbench(Number.isInteger(tab?.id) && tab.id >= 0 ? tab.id : null, request.url, tab?.windowId);
+}
+chrome.contextMenus?.onClicked.addListener((info, tab) => { handleImageContextMenu(info, tab)?.catch(() => {}); });
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   if (reason === 'install') {
     await chrome.storage.sync.set(DEFAULTS);
   }
+  if (chrome.contextMenus) chrome.contextMenus.create({ id: 'aid-inspect-image', title: '查看图片 AI 来源线索',
+    contexts: ['image'], documentUrlPatterns: ['http://*/*', 'https://*/*', 'file:///*'] }, () => { void chrome.runtime.lastError; });
   // 预创建 offscreen 文档，让第一次悬停就能拿到结果；失败也无所谓，请求时会自愈
   ensureOffscreen().catch(() => {});
 });

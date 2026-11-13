@@ -199,6 +199,17 @@ test('图片解码失败保留健康模型，故障代码明确', async () => {
   assert.equal(vm.runInContext('session === mockSession', ctx), true);
 });
 
+test('已知超大像素尺寸在原生解码前拒绝，不释放健康模型', async () => {
+  const { ctx } = offscreenContext(); await new Promise((r) => setImmediate(r));
+  ctx.mockSession = {}; vm.runInContext('session = mockSession', ctx);
+  let decoded = 0; ctx.createImageBitmap = async () => { decoded++; };
+  const bytes = Buffer.alloc(33); Buffer.from([137,80,78,71,13,10,26,10]).copy(bytes);
+  bytes.writeUInt32BE(13,8); bytes.write('IHDR',12); bytes.writeUInt32BE(100000,16); bytes.writeUInt32BE(100000,20);
+  ctx.huge = bytes;
+  await assert.rejects(vm.runInContext('runInferenceOnBytes(huge)',ctx), (e) => e.code === 'image-pixel-limit');
+  assert.equal(decoded,0); assert.equal(vm.runInContext('session === mockSession',ctx),true);
+});
+
 test('图片 HTTP、大小、超时和中断分别报告，仍保持 null 兼容接口', async () => {
   for (const [fetchImpl, max, expected] of [
     [async () => new Response('', { status: 403 }), 10, 'image-http-error'],

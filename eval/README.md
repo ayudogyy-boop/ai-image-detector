@@ -1,8 +1,24 @@
 # eval/ — 离线评测
 
-当前本地验证版本为 2.2.2。水印/溯源升级与指标见 [前次调研](PROVENANCE-RESEARCH-2026-11-10.md)。下方 2026-09/10 的数字是历史结果，不能当作当前策略；对应 JSON 均保留。
+当前本地验证版本为 2.3.0。水印/溯源升级与指标见 [前次调研](PROVENANCE-RESEARCH-2026-11-10.md)。下方 2026-09/10 的数字是历史结果，不能当作当前策略；对应 JSON 均保留。
 
 随后完成的 [对抗性审查](ADVERSARIAL-REVIEW-2026-11-10.md) 记录故障注入、修复与待审查取舍。
+
+## 2.3.0：本地工作台、报告与皮肤
+
+本地源码验证 248 项通过：57 元数据、69 纯 Node（其中工作台 15 项、工程回归 20 项）、29 Node/Chrome 流水线、63 原扩展 Chrome、30 工作台 Chrome。`npm run test:all` 串联全部检查；现有 CI 配置未修改，不代表 CI 已覆盖全部 248 项。
+
+`test-workbench-extension.mjs` 使用正确 CRC 的合成 PNG（包含可控的未验签工具字段），作为工程夹具，不能当作 AI 检测准确率样本。它验证真实本地 blob 推理、DOM 文件拖拽、实际 JSON/CSV 下载、请求监控、队列停止/继续、重试、域名暂停、皮肤颜色/分数不变。原生工具栏弹窗使用真实鼠标事件，侧栏通过 CDP 读取实际 UI，并确认未成为普通标签页；原生侧栏中实际选择文件并推理。
+
+右键链路通过真实菜单注册、调用生产菜单处理函数、侧栏/独立页打开及任务消费验证；自动化未操作系统原生右键菜单选项，不把处理函数测试说成完整的原生菜单点击验证。原生弹窗自动化使用 Chrome 127+ 的 action.openPopup；低版本会明确跳过该部分，但产品侧栏最低仍为 Chrome 116。
+
+截图在忽略的 `build/artifacts/workbench-preview/`，包含宽屏工作台、原生窄侧栏和太阳徽章。合成样本与本地测试网页是工程展示，不作准确率宣传。原始 40/60 决策和来源优先级未改变；没有复跑 240 张准确率评测，不宣称模型能力提升。
+
+工作台通过后台读取检测当时设置，页面 content 不能调用其本地 blob 接口。CSV 验证公式前缀和控制字符，JSON 默认不含 URL、像素与完整元数据。模型解码新增已知尺寸 3200 万像素预算；未知尺寸格式仍有边界。
+
+首次 2.3.0 安装包另解压至独立目录，原扩展 63 项与工作台 30 项 Chrome 检查全部通过（共 93 项）。该阶段 SHA-256 为 `9261d3868ac049ad426eb28a1fdd60749603620019b95e668747248330591c93`，大小 16,784,628 字节，43 个未压缩交付文件与当时源码逐字节一致；此为历史验证包记录。
+
+用户随后授权推送和商店上架，补充隐私政策及当前发布边界说明后重新构建：当前 `build/artifacts/ai-image-detector-v2.3.0.zip` 的 SHA-256 为 `a44a46bd93bfd10101d0dfce00d3bafb1bacfb179f62715db8925505cc30a2a2`，大小 16,786,992 字节。44 个未压缩交付文件逐字节一致，压缩后的 content.js 另通过实际交互验证；从该包解压后再次通过 63 + 30 = 93 项 Chrome 检查，并生成 1280×800 的商店界面截图。包内不含评测图片、测试代码和私有配置。开发者账号尚未注册、模型完整告知仍待核实，尚未上传或提交商店；未创建 GitHub Release。
 
 ## 2.2.2：共享设置与消息边界
 
@@ -89,6 +105,7 @@ node eval/test-metadata.mjs                   # 元数据解析与判定单测�
 node --test eval/test-contracts.mjs eval/test-regressions.mjs eval/test-provenance.mjs eval/test-adversarial.mjs # 契约、工程、溯源与对抗性回归
 node eval/test-metadata-pipeline.mjs          # 流水线测试：Node + 真实浏览器各跑一遍（29 项）
 node eval/test-extension.mjs                  # 真机端到端：含真实设置页与 popup
+node eval/test-workbench-extension.mjs        # 原生侧栏/独立工作台、文件/拖拽/导出/皮肤
 node eval/metadata-stats.mjs                  # 来源自述覆盖率统计
 ```
 

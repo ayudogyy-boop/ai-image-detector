@@ -20,6 +20,7 @@ async function check(ref, base = rootURL) {
 }
 
 const entries = [manifest.background.service_worker, manifest.action.default_popup, manifest.options_page,
+  manifest.side_panel?.default_path,
   ...Object.values(manifest.icons || {}), ...Object.values(manifest.action.default_icon || {}),
   ...(manifest.content_scripts || []).flatMap((c) => [...(c.js || []), ...(c.css || [])]),
   'models/detector.onnx', 'lib/ort.wasm.min.js', 'lib/ort-wasm-simd-threaded.wasm',

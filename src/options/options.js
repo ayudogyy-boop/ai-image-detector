@@ -6,9 +6,15 @@ document.getElementById('s-hoverDelay').replaceChildren(...AIDContracts.HOVER_DE
   option.textContent = `${delay / 1000} 秒`;
   return option;
 }));
+document.getElementById('s-badgeTheme').replaceChildren(...Object.entries(AIDContracts.BADGE_THEMES).map(([value, label]) => {
+  const option = document.createElement('option'); option.value = value; option.textContent = label; return option;
+}));
+document.getElementById('s-badgeSize').replaceChildren(...AIDContracts.BADGE_SIZES.map((value) => {
+  const option = document.createElement('option'); option.value = String(value); option.textContent = value + ' px'; return option;
+}));
 
 const fields = [
-  'enabled', 'hoverDelay', 'showOnHover', 'showOnMobile'
+  'enabled', 'hoverDelay', 'showOnHover', 'showOnMobile', 'badgeTheme', 'badgeSize', 'reduceMotion'
 ];
 
 async function load() {
@@ -24,6 +30,7 @@ async function load() {
     const el = document.getElementById(`sig-${key}`);
     if (el) el.checked = val;
   }
+  document.getElementById('s-excludedHosts').value = settings.excludedHosts.join('\n');
 }
 
 async function save() {
@@ -36,6 +43,8 @@ async function save() {
   // Numeric conversion
   const delay = Number(settings.hoverDelay);
   settings.hoverDelay = delay;
+  settings.badgeSize = Number(settings.badgeSize);
+  settings.excludedHosts = document.getElementById('s-excludedHosts').value.split(/[\s,，]+/).filter(Boolean);
 
   settings.signals = {};
   for (const key of Object.keys(DEFAULTS.signals)) {
@@ -45,7 +54,7 @@ async function save() {
 
   // 只写本页编辑的字段，保留旧版敏感度及移动端延时。
   const normalized = normalizeSettings(settings);
-  await chrome.storage.sync.set(Object.fromEntries([...fields, 'signals'].map((key) => [key, normalized[key]])));
+  await chrome.storage.sync.set(Object.fromEntries([...fields, 'signals', 'excludedHosts'].map((key) => [key, normalized[key]])));
 
   const status = document.getElementById('save-status');
   status.textContent = '✓ 已保存';

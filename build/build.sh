@@ -16,21 +16,24 @@ trap 'rm -rf "${WORK}"' EXIT
 
 echo "▶ 构建 ${OUTPUT}"
 
-mkdir -p "${STAGE}"/{icons,models,lib,docs,src/{shared,content,popup,options,offscreen}}
+mkdir -p "${STAGE}"/{icons,models,lib,docs,src/{shared,content,popup,options,offscreen,workbench}}
 
 cp manifest.json LICENSE NOTICE "${STAGE}/"
 cp docs/LICENSING.md "${STAGE}/docs/"
+cp docs/PRIVACY.md "${STAGE}/docs/"
 cp icons/icon*.png "${STAGE}/icons/"
 cp src/background.js "${STAGE}/src/"
 # offscreen 用 metadata；content script 用 scoring。
 cp src/shared/metadata.js src/shared/scoring.js "${STAGE}/src/shared/"
 cp src/shared/provenance.js "${STAGE}/src/shared/"
 cp src/shared/contracts.js "${STAGE}/src/shared/"
+cp src/shared/workbench.js "${STAGE}/src/shared/"
 cp src/content/styles.css "${STAGE}/src/content/"
 cp src/content/content.js "${STAGE}/src/content/content.js.src"
 cp src/popup/* "${STAGE}/src/popup/"
 cp src/options/* "${STAGE}/src/options/"
 cp src/offscreen/* "${STAGE}/src/offscreen/"
+cp src/workbench/* "${STAGE}/src/workbench/"
 # ONNX Runtime + 模型
 cp lib/ort.wasm.min.js lib/ort-wasm-simd-threaded.mjs lib/ort-wasm-simd-threaded.wasm "${STAGE}/lib/"
 cp lib/ONNXRUNTIME-LICENSE.txt lib/ONNXRUNTIME-ThirdPartyNotices.txt lib/ONNXRUNTIME-SOURCES.md "${STAGE}/lib/"

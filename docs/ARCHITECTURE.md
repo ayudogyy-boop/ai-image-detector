@@ -17,6 +17,10 @@ flowchart LR
 
 offscreen 从图片原站读取一次文件，三个检测通路共享字节。不把图片发给检测平台；官方核验入口由用户手动使用。
 
+2.3.0 新增 `src/workbench/`，同一页面作为侧栏或独立标签页：本地文件创建同扩展来源的临时 blob URL，由后台和 offscreen 双重校验后复用上述分析队列，不编码超长 base64 消息、不重写图片。每轮最多 50 项、客户端串行提交，已完成结果有检测时设置与时间。报告通过 `src/shared/workbench.js` 有界整形，不保留原始元数据/像素，URL 默认不导出，CSV 保护公式前缀。
+
+右键菜单在后台直接触发侧栏打开，失败时创建独立工作台。任务仅在 storage.session 暂存 15 分钟、最多 50 项，按窗口领取；隐藏的工作台不会抢走新任务。工作台是单独的发送方角色，只有它能发本地 blob 与手动分析任务，网页 content 不能借此读取扩展资源。
+
 | 层 | 允许做的事 | 共用规则 |
 |---|---|---|
 | content | 发现图片、请求分析、处理过期异步结果、缓存与展示 | contracts、scoring |
@@ -40,6 +44,10 @@ offscreen 从图片原站读取一次文件，三个检测通路共享字节。�
 | background | offscreen | __OFFSCREEN_READY__ |
 | offscreen | background | __OFFSCREEN_PING__、IMAGE_ANALYZE |
 | content | popup / options、background | GET_SUMMARY |
+| background | workbench | GET_SETTINGS、WORKBENCH_ANALYZE、LOCAL_IMAGE_ANALYZE、TAKE_WORKBENCH_TASKS |
+| background | content、popup | OPEN_WORKBENCH |
+| offscreen | background | LOCAL_IMAGE_RUN（仅同扩展 blob） |
+| content | workbench | LIST_PAGE_IMAGES（只列出，尚未分析） |
 
 角色由 Chrome 提供的 sender.id、准确扩展 URL 与 tab 上下文判断，不信任消息里的“角色”字段。拒绝任务不会创建 offscreen 或读取图片。该设计防止无意的跨层调用和伪造控制消息；已篡改整个扩展的本地攻击者仍能更改代码，不把它当作 DRM。
 

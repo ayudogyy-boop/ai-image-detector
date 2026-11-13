@@ -113,6 +113,20 @@
     </div>
   </div>
 
+  <h2>圆标外观</h2>
+  <div class="setting-group">
+    <div class="setting-row"><div><div class="setting-label">外圈皮肤</div><div class="setting-desc">只改变装饰，分数和红黄绿灰含义保持不变</div></div><select id="s-badgeTheme" aria-label="圆标皮肤"></select></div>
+    <div class="setting-row"><div class="setting-label">圆标大小</div><select id="s-badgeSize" aria-label="圆标大小"></select></div>
+    <div class="setting-row"><div><div class="setting-label">减少动画</div><div class="setting-desc">系统要求减少动态效果时也会关闭动画</div></div><label class="toggle"><input type="checkbox" id="s-reduceMotion" checked><span class="slider"></span></label></div>
+  </div>
+
+  <h2>暂停自动检测的网站</h2>
+  <div class="setting-group">
+    <label class="setting-label" for="s-excludedHosts">每行一个域名，包含该域名的子域名，最多 50 个</label>
+    <textarea id="s-excludedHosts" rows="3" placeholder="example.com" style="width:100%;box-sizing:border-box;margin-top:8px;padding:8px;background:#0f172a;border:1px solid #475569;color:#e2e8f0;border-radius:4px;font:inherit"></textarea>
+    <div class="setting-desc">只暂停网页自动提示；你仍可在工作台主动选择图片检测。</div>
+  </div>
+
   <h2>检测信号</h2>
   <div class="setting-group">
     <div class="setting-row">

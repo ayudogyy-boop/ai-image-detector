@@ -14,6 +14,11 @@
     const enabled = toggleEnabled.checked;
     await chrome.storage.sync.set({ enabled });
   });
+  document.getElementById('open-workbench').addEventListener('click', async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.runtime.sendMessage({ type: AIDContracts.MESSAGE.OPEN, tabId: tab?.id, windowId: tab?.windowId });
+    window.close();
+  });
 
   // Try to get page analysis summary from content script
   try {
